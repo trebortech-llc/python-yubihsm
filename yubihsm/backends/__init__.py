@@ -12,30 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
-from six.moves.urllib import parse
+from urllib import parse
 import re
+import abc
+from typing import Optional
 
 
-def get_backend(url=None):
+class YhsmBackend(abc.ABC):
+    """Provides low-level communication with a YubiHSM."""
+
+    def transceive(self, msg: bytes) -> bytes:
+        """Send a verbatim message."""
+
+    def close(self) -> None:
+        """Closes the connection to the YubiHSM."""
+
+
+def get_backend(url: Optional[str] = None) -> YhsmBackend:
     """Returns a backend suitable for the given URL."""
-    url = url or 'http://localhost:12345'
+    url = url or "http://localhost:12345"
     parsed = parse.urlparse(url)
 
     try:
-        if parsed.scheme == 'yhusb':
+        if parsed.scheme == "yhusb":
             from .usb import UsbBackend
-            serial = re.match(r'serial=(\d+)', parsed.netloc)
+
+            serial = re.match(r"serial=(\d+)", parsed.netloc)
             if serial:
                 return UsbBackend(int(serial.group(1)))
             elif not parsed.netloc:  # On anything else, fall through to error.
                 return UsbBackend()
-        elif parsed.scheme in ('http', 'https'):
+        elif parsed.scheme in ("http", "https"):
             from .http import HttpBackend
+
             return HttpBackend(url, (10, 600))
     except ImportError:
-        raise ValueError('Unable to initialize backend for scheme "%s", are '
-                         'required dependencies installed?' % parsed.scheme)
+        raise ValueError(
+            'Unable to initialize backend for scheme "%s", are '
+            "required dependencies installed?" % parsed.scheme
+        )
 
-    raise ValueError('Invalid YubiHSM backend URL.')
+    raise ValueError("Invalid YubiHSM backend URL.")

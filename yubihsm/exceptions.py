@@ -14,9 +14,6 @@
 
 """Exceptions thrown by this library."""
 
-
-from __future__ import absolute_import
-
 from .defs import ERROR
 
 
@@ -33,10 +30,11 @@ class YubiHsmDeviceError(YubiHsmError):
 
     :param int code: The device error code.
     """
-    def __init__(self, code):
+
+    def __init__(self, code: int):
         self.code = ERROR(code)
         super(YubiHsmDeviceError, self).__init__(
-            '{0.name} (error code 0x{0.value:02x})'.format(self.code)
+            "{0.name} (error code 0x{0.value:02x})".format(self.code)
         )
 
 

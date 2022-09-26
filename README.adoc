@@ -1,15 +1,18 @@
 == python-yubihsm
 
 Python library and tests for the YubiHSM 2.
-This library is compatible with both Python 2 and 3.
 
-This libary communicates with the YubiHSM 2 connector daemon, which must already be running.
-It can also communicate directly with the YubiHSM 2 via USB.
+The current version (2.1) supports Python 2.7 and later.
+
+NOTE: The next major version (3.x) will require Python 3.6 or later.
+
+Communicates with the YubiHSM 2 connector daemon, which must already be running.
+It can also communicate directly with the YubiHSM 2 via USB (requires libusb).
 
 === License
 
 ....
-Copyright 2018 Yubico AB
+Copyright 2018-2021 Yubico AB
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -34,7 +37,6 @@ From a source .tar.gz:
 
  $ pip install yubihsm-<version>.tar.gz[http,usb]
 
-
 Omitting a tag from the brackets will install the library without support for
 that backend, and will avoid installing unneeded dependencies.
 
@@ -55,7 +57,7 @@ key = AsymmetricKey.generate(  # Generate a new key object in the YubiHSM.
     0,                         # Object ID, 0 to get one assigned.
     'My key',                  # Label for the object.
     1,                         # Domain(s) for the object.
-    CAPABILITY.SIGN_ECDSA,     # Capabilities for the ojbect.
+    CAPABILITY.SIGN_ECDSA,     # Capabilities for the object, can have multiple.
     ALGORITHM.EC_P256          # Algorithm for the key.
 )
 
@@ -72,49 +74,60 @@ with open('public_key.pem', 'w') as f:
 # Sign some data:
 signature = key.sign_ecdsa(b'Hello world!')  # Create a signature.
 
-# Clean up
+# Clean up:
 session.close()
 hsm.close()
 ----
 
 === Development
-For development of the library, we recommend using `pipenv`. To set up the dev
+For development of the library, `poetry` is used. To set up the dev
 environment, run this command in the root directory of the repository:
 
- $ pipenv install --dev
+ $ poetry install -E http -E usb
+
+==== Pre-commit checks
+This project uses https://pre-commit.com to run several checks on the code
+prior to committing. To enable the hooks, run this command in the root
+directory of the repository:
+
+  $ pre-commit install
+
+Once the hooks are installed, they will run automatically on any changed files
+when committing. To run the hooks against all files in the repository, run:
+
+  $ pre-commit run --all-files
 
 ==== Running tests
 Running the tests require a YubiHSM2 to run against, with the default
-authentication key set.
+authentication key enabled (as is the case after performing a factory reset).
 
 WARNING: The YubiHSM under test will be factory reset by the tests!
 
- $ pipenv run test
+ $ poetry run pytest
 
-You can specify a specific module or test to run by using the -s flag:
-
- $ pipenv run test -s test.device.test_ec
+See pytest documentation for instructions on running a specific test.
 
 By default the tests will connect to a yubihsm-connector running with the
-default settings on http://localhost:12345. To change this, use the `BACKEND`
-variable, eg:
+default settings on http://localhost:12345. To change this, use the `--backend`
+argument, eg:
 
- $ BACKEND="yhusb://" pipenv run python setup.py test
+ $ poetry run pytest --backend "yhusb://"
 
 Access to the device requires proper permissions, so either use sudo or setup a
-udev rule.
+udev rule. Sample udev configuration can be found
+link:https://developers.yubico.com/YubiHSM2/Component_Reference/yubihsm-connector/[here].
 
 ==== Generating HTML documentation
 
 To build the HTML documentation, run:
 
- $ pipenv run docs
+ $ poetry run make -C docs/ html
 
 The resulting output will be in docs/_build/html/.
 
 ==== Source releases for distribution
 Build a source release:
 
- $ pipenv run python setup.py sdist
+ $ poetry build
 
-The resulting .tar.gz will be created in `dist/`.
+The resulting .tar.gz and .whl will be created in `dist/`.

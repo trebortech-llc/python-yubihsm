@@ -12,41 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
-
+from . import YhsmBackend
 from ..exceptions import YubiHsmConnectionError
 import usb.core
 import usb.util
+from typing import Optional
 
 
 YUBIHSM_VID = 0x1050
 YUBIHSM_PID = 0x0030
 
 
-class UsbBackend(object):
+class UsbBackend(YhsmBackend):
     """A backend for communicating with a YubiHSM directly over USB."""
 
-    def __init__(self, serial=None):
+    def __init__(self, serial: Optional[int] = None):
         """Construct a UsbBackend, connected to a YubiHSM via USB.
 
-        :param int serial: (optional) The serial number of the YubiHSM to
-            connect to.
+        :param serial: (optional) The serial number of the YubiHSM to connect to.
         """
-        for device in usb.core.find(find_all=True, idVendor=YUBIHSM_VID,
-                                    idProduct=YUBIHSM_PID):
+        for device in usb.core.find(
+            find_all=True, idVendor=YUBIHSM_VID, idProduct=YUBIHSM_PID
+        ):
             if serial is None or int(device.serial_number) == serial:
                 break
         else:
-            raise YubiHsmConnectionError('No YubiHSM found.')
+            raise YubiHsmConnectionError("No YubiHSM found.")
 
         try:
-            device.set_configuration()
-        except usb.core.USBError as e:
-            raise YubiHsmConnectionError(e)
+            cfg = device.get_active_configuration()
+        except usb.core.USBError:
+            cfg = None
+
+        if cfg is None or cfg.bConfigurationValue != 0x01:
+            try:
+                device.set_configuration(0x01)
+            except usb.core.USBError as e:
+                raise YubiHsmConnectionError(e)
 
         # Flush any data waiting to be read
         try:
-            device.read(0x81, 0xffff, 10)
+            device.read(0x81, 0xFFFF, 10)
         except usb.core.USBError:
             pass  # Errors here are expected, and ignored
 
@@ -54,16 +60,16 @@ class UsbBackend(object):
         self.timeout = 300
 
     def transceive(self, msg):
-        """Send a verbatim message."""
         try:
             sent = self._device.write(0x01, msg, self.timeout * 1000)
             if sent != len(msg):
-                raise YubiHsmConnectionError('Error sending data over USB.')
+                raise YubiHsmConnectionError("Error sending data over USB.")
             if sent % 64 == 0:
-                if self._device.write(0x01, b'', self.timeout * 1000) != 0:
-                    raise YubiHsmConnectionError('Error sending data over USB.')
-            return bytes(bytearray(self._device.read(0x81, 0xffff,
-                                                     self.timeout * 1000)))
+                if self._device.write(0x01, b"", self.timeout * 1000) != 0:
+                    raise YubiHsmConnectionError("Error sending data over USB.")
+            return bytes(
+                bytearray(self._device.read(0x81, 0xFFFF, self.timeout * 1000))
+            )
         except usb.core.USBError as e:
             raise YubiHsmConnectionError(e)
 
@@ -72,8 +78,9 @@ class UsbBackend(object):
 
     def __repr__(self):
         v_int = self._device.bcdDevice
-        version = '{}.{}.{}'.format(
-            (v_int >> 8) & 0xf, (v_int >> 4) & 0xf, v_int & 0xf)
-        return ('{0.__class__.__name__}('
-                'version={1}, '
-                'serial={0._device.serial_number})').format(self, version)
+        version = "{}.{}.{}".format((v_int >> 8) & 0xF, (v_int >> 4) & 0xF, v_int & 0xF)
+        return (
+            "{0.__class__.__name__}("
+            "version={1}, "
+            "serial={0._device.serial_number})"
+        ).format(self, version)

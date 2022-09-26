@@ -14,35 +14,37 @@
 
 """Various utility functions used throughout the library."""
 
-
 from __future__ import absolute_import, division, print_function
 
 import six
 import random
 import functools
+
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from typing import Tuple, Union
 
 _PRIME = 2**127 - 1
 # TODO: Change this to pull random number from YubiHSM
 _RINT = functools.partial(random.SystemRandom().randint, 0)
 
-def password_to_key(password):
+def password_to_key(password: Union[str, bytes]) -> Tuple[bytes, bytes]:
     """Derive keys for establishing a YubiHSM session from a password.
 
     :return: A tuple containing the encryption key, and MAC key.
-    :rtype: tuple[bytes, bytes]
     """
-    if isinstance(password, six.text_type):
-        password = password.encode('utf8')
+    if isinstance(password, str):
+        pw_bytes = password.encode()
+    else:
+        pw_bytes = password
     key = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
-        salt=b'Yubico',
+        salt=b"Yubico",
         iterations=10000,
-        backend=default_backend()
-    ).derive(password)
+        backend=default_backend(),
+    ).derive(pw_bytes)
     key_enc, key_mac = key[:16], key[16:]
     return key_enc, key_mac
 
